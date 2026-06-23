@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+.env.local
+.venv/
+venv/
+data/news_cache.json
+data/dart_corp_code.json
+.DS_Store
+*.log
+.idea/
+.vscode/

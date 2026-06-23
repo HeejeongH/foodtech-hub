@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: foodtech-hub
+    runtime: docker
+    plan: starter   # $7/mo, free tier도 가능 (자동 sleep)
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: DART_API_KEY
+        sync: false   # Render 대시보드에서 직접 입력
+      - key: BRAVE_API_KEY
+        sync: false
+      - key: DATA_DIR
+        value: /app/data
+    disk:
+      name: foodtech-data
+      mountPath: /app/data
+      sizeGB: 1
