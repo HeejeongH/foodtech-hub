@@ -98,6 +98,23 @@
 
   .empty { text-align: center; padding: 50px 20px; color: var(--muted); }
 
+  .upload-card { background: white; border-radius: 12px; padding: 0; margin-bottom: 20px; }
+  .upload-zone { border: 2px dashed #c5d0e0; border-radius: 12px; padding: 32px 20px;
+                 text-align: center; transition: all 0.18s; background: #fafbfc; cursor: pointer; }
+  .upload-zone.dragover { border-color: var(--accent); background: #eef4ff; }
+  .upload-icon { font-size: 36px; }
+  .upload-title { font-weight: 600; margin-top: 8px; font-size: 15px; }
+  .upload-sub { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+  .upload-busy { padding: 14px 18px; border-radius: 10px; background: #eef4ff; color: var(--accent-2);
+                 margin-top: 12px; font-size: 13px; display: flex; gap: 10px; align-items: center; }
+  .upload-busy .spin { width: 14px; height: 14px; border: 2px solid #c5d0e0; border-top-color: var(--accent);
+                       border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .upload-ok { padding: 14px 18px; border-radius: 10px; background: #e6f8ee; color: var(--ok);
+               border: 1px solid #b9ebca; margin-top: 12px; font-size: 13px; line-height: 1.7; }
+  .upload-err { padding: 14px 18px; border-radius: 10px; background: #fdecee; color: var(--danger);
+                border: 1px solid #f4c4c9; margin-top: 12px; font-size: 13px; }
+
   @media (max-width: 800px) {
     .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
     main { padding: 16px; }
@@ -154,6 +171,18 @@
 
     <!-- MEMBERS -->
     <section id="members">
+      <!-- Upload card -->
+      <div class="upload-card" id="upload-card">
+        <div class="upload-zone" id="upload-zone" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+          <div class="upload-icon">📤</div>
+          <div class="upload-title">엑셀 / CSV 파일을 끌어다 놓거나 클릭하여 업로드</div>
+          <div class="upload-sub">지원 형식: .xlsx, .xls, .csv (최대 10MB) · 같은 이메일은 자동으로 업데이트됩니다</div>
+          <input type="file" id="upload-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadFile(this.files[0])" />
+          <button class="btn-secondary" onclick="document.getElementById('upload-input').click()" style="margin-top:14px">파일 선택</button>
+        </div>
+        <div id="upload-result"></div>
+      </div>
+
       <div class="toolbar">
         <input id="m-search" type="text" placeholder="이름·이메일·소속·직위 검색…" oninput="loadMembers()" />
         <select id="m-cohort" onchange="loadMembers()"><option value="">전체 기수</option></select>
@@ -455,6 +484,61 @@ async function loadDrafts() {
 function esc(s) {
   return (s==null?'':String(s)).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
+
+/* ========== FILE UPLOAD ========== */
+function dragOver(e) { e.preventDefault(); document.getElementById("upload-zone").classList.add("dragover"); }
+function dragLeave(e) { document.getElementById("upload-zone").classList.remove("dragover"); }
+function dropFile(e) {
+  e.preventDefault();
+  document.getElementById("upload-zone").classList.remove("dragover");
+  const f = e.dataTransfer.files[0];
+  if (f) uploadFile(f);
+}
+async function uploadFile(f) {
+  if (!f) return;
+  const resultEl = document.getElementById("upload-result");
+  const ok = /\.(xlsx|xls|csv)$/i.test(f.name);
+  if (!ok) {
+    resultEl.innerHTML = `<div class="upload-err">지원하지 않는 형식입니다: ${esc(f.name)}<br/>.xlsx, .xls, .csv 만 업로드 가능합니다.</div>`;
+    return;
+  }
+  resultEl.innerHTML = `<div class="upload-busy"><span class="spin"></span>업로드 중… <b>${esc(f.name)}</b> (${Math.round(f.size/1024)}KB)</div>`;
+  const fd = new FormData();
+  fd.append("file", f);
+  try {
+    const r = await fetch("/api/admin/members/import", { method: "POST", body: fd });
+    const d = await r.json();
+    if (!r.ok) {
+      resultEl.innerHTML = `<div class="upload-err">❌ ${esc(d.detail || JSON.stringify(d))}</div>`;
+      return;
+    }
+    let errHtml = "";
+    if (d.errors && d.errors.length) {
+      errHtml = `<br/><span style="color:var(--warn)">⚠ ${d.errors.length}개 행 오류 (첫 3개):</span><br/>` +
+        d.errors.slice(0,3).map(e => `&nbsp;&nbsp;· 행 ${e.row}: ${esc(e.error)}`).join("<br/>");
+    }
+    resultEl.innerHTML = `<div class="upload-ok">
+      ✓ 임포트 완료 (<b>${esc(d.filename)}</b>)<br/>
+      신규 ${d.created}건 · 업데이트 ${d.updated}건 · 무시 ${d.skipped}건${errHtml}
+    </div>`;
+    // refresh data
+    loadMembers();
+    loadDashboard();
+    loadCohortOptions();
+  } catch (e) {
+    resultEl.innerHTML = `<div class="upload-err">❌ 업로드 실패: ${esc(e.message)}</div>`;
+  }
+  // reset input so same file can be re-uploaded
+  document.getElementById("upload-input").value = "";
+}
+
+/* zone click also triggers file picker */
+document.addEventListener("DOMContentLoaded", () => {
+  const z = document.getElementById("upload-zone");
+  if (z) z.addEventListener("click", (e) => {
+    if (e.target.tagName !== "BUTTON") document.getElementById("upload-input").click();
+  });
+});
 
 checkAuth();
 </script>

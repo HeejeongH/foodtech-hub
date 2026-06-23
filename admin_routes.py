@@ -5,7 +5,7 @@ Mounted under /admin and /api/admin in app.py.
 import os, secrets, json
 from datetime import datetime, timezone
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, Form, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Form, Query, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlmodel import Session, select, or_, func
 
@@ -183,6 +183,31 @@ def delete_member(
     if not m: raise HTTPException(404, "not found")
     session.delete(m); session.commit()
     return {"ok": True}
+
+
+@router.post("/api/admin/members/import")
+async def import_members_file(
+    file: UploadFile = File(...),
+    admin: str = Depends(get_current_admin),
+):
+    """Upload an Excel (.xlsx) or CSV file with members. Existing rows
+    (matched by email or name+org) are updated; new rows are created."""
+    from import_members import read_file, import_rows
+    content = await file.read()
+    if not content:
+        raise HTTPException(400, "empty file")
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(400, "file too large (>10MB)")
+    try:
+        rows = read_file(content, filename=file.filename or "")
+    except Exception as e:
+        raise HTTPException(400, f"파일을 읽을 수 없습니다: {e}")
+    if not rows:
+        raise HTTPException(400, "데이터 행이 없습니다. 헤더와 데이터가 모두 있는지 확인하세요.")
+    result = import_rows(rows)
+    result["filename"] = file.filename
+    result["rows_loaded"] = len(rows)
+    return result
 
 
 # ============================================================

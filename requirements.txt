@@ -6,3 +6,4 @@ python-dotenv==1.0.1
 sqlmodel==0.0.22
 psycopg2-binary==2.9.10
 python-multipart==0.0.20
+openpyxl==3.1.5
