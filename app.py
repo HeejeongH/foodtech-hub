@@ -14,9 +14,12 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-import yfinance as yf
 import requests
 from dotenv import load_dotenv
+
+# yfinance is imported lazily inside fetch_yf_quote() to keep
+# startup fast — yfinance fetches a Yahoo cookie on first import
+# which can hang for >30s on some networks (e.g. Railway).
 
 load_dotenv()
 ROOT = Path(__file__).parent
@@ -33,6 +36,12 @@ QUOTE_CACHE = {}
 QUOTE_TTL = 300  # 5 minutes
 
 app = FastAPI(title="FoodTech Hub API", version="2.0.0")
+
+# Lightweight health endpoint — defined FIRST so it works even if other
+# routes fail to import. Railway/Render hit this for liveness probes.
+@app.get("/api/health")
+def health_early():
+    return {"status": "ok", "ts": datetime.now(timezone.utc).isoformat()}
 
 # ============================================================
 # COMPANY METADATA
@@ -121,6 +130,7 @@ def fmt_money(v, currency="USD"):
     return f"{sign}${v:,.0f}"
 
 def fetch_yf_quote(ticker):
+    import yfinance as yf  # lazy import
     t = yf.Ticker(ticker)
     info = {}
     try: info = t.info or {}
@@ -414,6 +424,16 @@ def call_brave_search(query):
     except Exception as e:
         print(f"[brave] error: {e}"); return []
 
+def strip_html(s: str) -> str:
+    """Remove HTML tags + decode entities. Used for RSS descriptions."""
+    if not s: return ""
+    import html as _html
+    # remove tags
+    s = re.sub(r"<[^>]+>", " ", s)
+    # collapse whitespace
+    s = re.sub(r"\s+", " ", s).strip()
+    return _html.unescape(s)
+
 def call_rss_fallback():
     """RSS 폴백: Google News RSS는 키 없이도 동작."""
     import xml.etree.ElementTree as ET
@@ -433,12 +453,11 @@ def call_rss_fallback():
             if r.status_code != 200: continue
             root = ET.fromstring(r.content)
             for it in root.iter("item"):
-                title = (it.findtext("title") or "").strip()
+                title = strip_html(it.findtext("title") or "")
                 link = (it.findtext("link") or "").strip()
                 pub = (it.findtext("pubDate") or "").strip()
-                desc = (it.findtext("description") or "").strip()
-                # google news RSS wraps real URL; we just use what they give
-                items.append({"title": title, "link": link, "snippet": desc[:200],
+                desc = strip_html(it.findtext("description") or "")
+                items.append({"title": title, "link": link, "snippet": desc[:220],
                               "date": pub[:16], "category": cat})
         except Exception as e:
             print(f"[rss] {q}: {e}")
@@ -503,7 +522,9 @@ def api_news_refresh():
     return refresh_news_cache()
 
 def news_cron():
-    """Refresh hourly check; rebuild if older than 24h."""
+    """Refresh hourly check; rebuild if older than 24h.
+    Delay first run by 60s so healthcheck can pass first."""
+    time.sleep(60)
     while True:
         try:
             if not NEWS_CACHE_FILE.exists():
@@ -517,7 +538,9 @@ def news_cron():
             print(f"[cron] {e}")
         time.sleep(3600)
 
-threading.Thread(target=news_cron, daemon=True).start()
+# Disable background cron during startup health probe by checking env
+if os.getenv("DISABLE_CRON", "").lower() not in ("1","true","yes"):
+    threading.Thread(target=news_cron, daemon=True).start()
 
 # ============================================================
 # Companies + Config
@@ -534,18 +557,20 @@ def api_config():
             "version": "2.0.0",
             "server_time": datetime.now(timezone.utc).isoformat()}
 
-@app.get("/api/health")
-def health():
-    return {"status": "ok", "ts": datetime.now(timezone.utc).isoformat()}
-
 # ============================================================
 # Static frontend
 # ============================================================
 @app.get("/")
 def index():
-    return FileResponse(ROOT / "static" / "index.html")
+    p = ROOT / "static" / "index.html"
+    if not p.exists():
+        return JSONResponse({"error": "frontend missing", "expected": str(p)}, status_code=500)
+    return FileResponse(p)
 
-app.mount("/static", StaticFiles(directory=ROOT/"static"), name="static")
+# Mount static only if directory exists (avoid startup crash)
+_static_dir = ROOT / "static"
+if _static_dir.exists():
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 if __name__ == "__main__":
     import uvicorn
