@@ -44,26 +44,45 @@ def _split_email(s: Optional[str]) -> Optional[str]:
 
 
 def parse_row(row: dict) -> Optional[dict]:
+    """Map sheet columns to Member fields.
+
+    Sheet structure (Google Sheets headers):
+      대분류    : 사업 카테고리 (예: '서울대 푸드테크 최고책임자과정')
+      소분류    : 기수 (예: '원우(10기)', '원우(9기)')  → cohort
+      구분      : 대분류 카테고리 (기업/기관/대학/언론) → category
+      세부구분  : 소분류 (일반/스타트업/대학/언론/기관/대기업/로펌/투자) → subcategory
+      성명·직위·소속·소재지·세부소속·휴대폰·이메일
+      * 총동문회: 회원여부 (정회원/임원/일반회원)         → membership_status
+      * 월드푸드테크협의회: 혜택 % (100%/50%/20%)         → benefit_pct
+      유료회원여부 (26.6.18.): 개인/기업/기관             → membership_type
+      비고: 납입 이력 + 메모                              → notes + payment_history
+      소속 (협의회 표기 기준): council_label
+    """
     name = _norm(row.get("성명"))
     if not name: return None
+    notes = _norm(row.get("비고"))
+    # 비고에 "26.3 납입" 같은 텍스트가 들어가 있으면 payment_history로도 활용
+    payment = None
+    if notes and ("납입" in notes or "이후" in notes):
+        payment = notes
     return {
         "name": name,
         "email": _split_email(row.get("이메일")),
         "phone": _norm_phone(row.get("휴대폰")),
-        "cohort": _norm(row.get("세부구분")),     # 원우(10기)...
-        "category": _norm(row.get("구분")),       # 기업/기관/대학/언론
-        "subcategory": _norm(row.get("세부구분") if False else row.get("소분류")) if row.get("소분류") else None,
+        "cohort": _norm(row.get("소분류")),                                     # 원우(N기)
+        "category": _norm(row.get("구분")),                                     # 기업/기관/대학/언론
+        "subcategory": _norm(row.get("세부구분")),                              # 일반/스타트업/...
         "position": _norm(row.get("직위")),
         "organization": _norm(row.get("소속")),
         "location": _norm(row.get("소재지")),
         "division": _norm(row.get("세부소속")),
         "business_area": _norm(row.get("연구분야(대학소속) / 사업분야(기업소속)") or row.get("사업분야")),
         "membership_status": _norm(row.get("* 총동문회")) or _norm(row.get("회원 여부 (2025.04.01. 기준)")),
-        "membership_type": _norm(row.get("가입 유형")),
-        "payment_history": _norm(row.get("유료회원여부 (26.6.18.)") or row.get("납입이력")),
-        "benefit_pct": _norm(row.get("* 월드푸드테크협의회") or row.get("혜택 적용 여부 (수강료 감면)")),
+        "membership_type": _norm(row.get("유료회원여부 (26.6.18.)")),
+        "payment_history": payment,
+        "benefit_pct": _norm(row.get("* 월드푸드테크협의회")) or _norm(row.get("혜택 적용 여부 (수강료 감면)")),
         "council_label": _norm(row.get("소속 (협의회 표기 기준)")),
-        "notes": _norm(row.get("비고")),
+        "notes": notes,
     }
 
 
