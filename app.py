@@ -35,13 +35,24 @@ DART_CORP_FILE = DATA / "dart_corp_code.json"
 QUOTE_CACHE = {}
 QUOTE_TTL = 300  # 5 minutes
 
-app = FastAPI(title="FoodTech Hub API", version="2.0.0")
+app = FastAPI(title="FoodTech Hub API", version="2.1.0")
 
 # Lightweight health endpoint — defined FIRST so it works even if other
 # routes fail to import. Railway/Render hit this for liveness probes.
 @app.get("/api/health")
 def health_early():
     return {"status": "ok", "ts": datetime.now(timezone.utc).isoformat()}
+
+# Initialize DB + register admin/newsletter routes
+try:
+    from db import init_db
+    from admin_routes import router as admin_router
+    init_db()
+    app.include_router(admin_router)
+    print("[init] members/newsletter routes registered")
+except Exception as e:
+    print(f"[init] admin routes failed to load: {e}")
+    import traceback; traceback.print_exc()
 
 # ============================================================
 # COMPANY METADATA
@@ -565,6 +576,13 @@ def index():
     p = ROOT / "static" / "index.html"
     if not p.exists():
         return JSONResponse({"error": "frontend missing", "expected": str(p)}, status_code=500)
+    return FileResponse(p)
+
+@app.get("/admin")
+def admin_page():
+    p = ROOT / "static" / "admin.html"
+    if not p.exists():
+        return JSONResponse({"error": "admin page missing"}, status_code=500)
     return FileResponse(p)
 
 # Mount static only if directory exists (avoid startup crash)

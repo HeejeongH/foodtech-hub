@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FoodTech Hub · 관리자</title>
+<style>
+  :root {
+    --bg: #f4f7fb; --panel: #ffffff; --line: #e3e9f1; --text: #1a2333; --muted: #6b7689;
+    --accent: #4d8bff; --accent-2: #2563eb; --danger: #e15464; --ok: #16a34a; --warn: #d97706;
+  }
+  * { box-sizing: border-box; min-width: 0; }
+  body { margin: 0; font-family: 'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;
+         background: var(--bg); color: var(--text); line-height: 1.5; }
+  a { color: var(--accent); text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+
+  .topbar { background: white; border-bottom: 1px solid var(--line); padding: 14px 28px;
+            display: flex; justify-content: space-between; align-items: center; }
+  .brand { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+  .brand .logo { display: inline-block; width: 28px; height: 28px; border-radius: 8px;
+                 background: linear-gradient(135deg, #4d8bff, #7cc4ff); color: white;
+                 text-align: center; line-height: 28px; font-weight: 800; margin-right: 8px; vertical-align: middle; }
+  .topbar nav { display: flex; gap: 4px; }
+  .topbar nav button { background: transparent; border: 0; padding: 8px 16px; border-radius: 8px;
+                       color: var(--muted); font-size: 14px; }
+  .topbar nav button.active { background: var(--bg); color: var(--accent-2); font-weight: 600; }
+  .topbar nav button:hover { background: var(--bg); }
+  .topbar .right { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 12px; }
+  .topbar .right button { background: var(--bg); border: 1px solid var(--line); padding: 6px 12px;
+                          border-radius: 6px; font-size: 12px; color: var(--text); }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 28px; }
+  section { display: none; }
+  section.active { display: block; }
+
+  .login-card { max-width: 420px; margin: 80px auto; background: white; border-radius: 14px;
+                box-shadow: 0 4px 14px rgba(0,0,0,0.06); padding: 36px; }
+  .login-card h1 { margin: 0 0 8px; font-size: 22px; }
+  .login-card p { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+  .login-card input { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px;
+                      font-size: 15px; font-family: inherit; outline: none; }
+  .login-card input:focus { border-color: var(--accent); }
+  .login-card .btn-primary { width: 100%; margin-top: 12px; }
+  .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px; }
+  .msg.ok { background: #e6f8ee; color: var(--ok); border: 1px solid #b9ebca; }
+  .msg.err { background: #fdecee; color: var(--danger); border: 1px solid #f4c4c9; }
+
+  .btn-primary { background: var(--accent); color: white; border: 0; padding: 10px 18px;
+                 border-radius: 8px; font-weight: 600; font-size: 14px; }
+  .btn-primary:hover { background: var(--accent-2); }
+  .btn-secondary { background: white; color: var(--text); border: 1px solid var(--line);
+                   padding: 9px 16px; border-radius: 8px; font-size: 14px; }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: white; color: var(--danger); border: 1px solid #f4c4c9;
+                padding: 8px 14px; border-radius: 8px; font-size: 13px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-bottom: 20px; }
+  .stat { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .stat .k { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .stat .v { font-size: 26px; font-weight: 700; margin-top: 6px; letter-spacing: -0.02em; }
+  .stat .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar input, .toolbar select { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+                                     font-size: 14px; font-family: inherit; outline: none; background: white; }
+  .toolbar input { flex: 1; min-width: 180px; }
+  .toolbar input:focus, .toolbar select:focus { border-color: var(--accent); }
+
+  table { width: 100%; background: white; border: 1px solid var(--line); border-radius: 12px;
+          border-collapse: separate; border-spacing: 0; overflow: hidden; }
+  table th, table td { padding: 11px 14px; text-align: left; font-size: 13.5px; border-bottom: 1px solid var(--line); }
+  table th { background: #fafbfc; color: var(--muted); font-weight: 600; font-size: 12px;
+             text-transform: uppercase; letter-spacing: 0.04em; }
+  table tr:last-child td { border-bottom: 0; }
+  table tr:hover td { background: #f7faff; }
+  .table-wrap { overflow-x: auto; border-radius: 12px; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
+          background: #eef2f9; color: var(--muted); }
+  .pill.green { background: #e6f8ee; color: var(--ok); }
+  .pill.gray { background: #eef2f9; color: var(--muted); }
+  .pill.blue { background: #e6efff; color: var(--accent-2); }
+  .pill.red { background: #fdecee; color: var(--danger); }
+
+  .panel { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 24px; margin-bottom: 18px; }
+  .panel h2 { margin: 0 0 16px; font-size: 18px; }
+  .panel label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; font-weight: 500; }
+  .panel input, .panel select, .panel textarea { width: 100%; padding: 10px 14px; border: 1px solid var(--line);
+            border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; background: white; }
+  .panel textarea { min-height: 220px; resize: vertical; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 13px; }
+  .panel input:focus, .panel textarea:focus, .panel select:focus { border-color: var(--accent); }
+
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 180px; }
+
+  .preview-frame { background: #f7faff; border: 1px solid var(--line); border-radius: 10px; padding: 18px;
+                   max-height: 500px; overflow: auto; }
+
+  .empty { text-align: center; padding: 50px 20px; color: var(--muted); }
+
+  @media (max-width: 800px) {
+    .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    main { padding: 16px; }
+    .topbar { padding: 12px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-view">
+  <div class="login-card">
+    <h1>관리자 로그인</h1>
+    <p>등록된 관리자 이메일을 입력하시면 로그인 링크를 보내드립니다.</p>
+    <input id="login-email" type="email" placeholder="admin@example.com" autocomplete="email" />
+    <button class="btn-primary" onclick="requestMagicLink()">로그인 링크 받기</button>
+    <div id="login-msg"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-view" style="display:none">
+  <header class="topbar">
+    <div class="brand"><span class="logo">F</span>FoodTech Hub · 관리자</div>
+    <nav>
+      <button data-tab="dashboard" class="active">대시보드</button>
+      <button data-tab="members">회원 관리</button>
+      <button data-tab="newsletter">뉴스레터</button>
+    </nav>
+    <div class="right">
+      <span id="admin-email"></span>
+      <button onclick="logout()">로그아웃</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="active">
+      <div class="stats">
+        <div class="stat"><div class="k">전체 회원</div><div class="v" id="s-total">—</div><div class="sub">명단 등록</div></div>
+        <div class="stat"><div class="k">유효 이메일</div><div class="v" id="s-email">—</div><div class="sub">발송 가능</div></div>
+        <div class="stat"><div class="k">수신 동의</div><div class="v" id="s-sub">—</div><div class="sub">뉴스레터 활성</div></div>
+        <div class="stat"><div class="k">정회원</div><div class="v" id="s-paid">—</div><div class="sub">유료 회원</div></div>
+      </div>
+      <div class="panel">
+        <h2>기수별 회원 분포</h2>
+        <div id="cohort-chart"></div>
+      </div>
+      <div class="panel">
+        <h2>분류별 회원 분포</h2>
+        <div id="category-chart"></div>
+      </div>
+    </section>
+
+    <!-- MEMBERS -->
+    <section id="members">
+      <div class="toolbar">
+        <input id="m-search" type="text" placeholder="이름·이메일·소속·직위 검색…" oninput="loadMembers()" />
+        <select id="m-cohort" onchange="loadMembers()"><option value="">전체 기수</option></select>
+        <select id="m-status" onchange="loadMembers()">
+          <option value="">전체 상태</option>
+          <option value="정회원">정회원</option>
+          <option value="임원">임원</option>
+        </select>
+        <select id="m-sub" onchange="loadMembers()">
+          <option value="">전체 수신</option>
+          <option value="true">수신 동의</option>
+          <option value="false">수신 거부</option>
+        </select>
+      </div>
+      <div id="m-count" style="color:var(--muted);font-size:13px;margin-bottom:10px"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>이름</th><th>이메일</th><th>기수</th><th>소속</th>
+            <th>직위</th><th>상태</th><th>수신</th><th></th>
+          </tr></thead>
+          <tbody id="m-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- NEWSLETTER -->
+    <section id="newsletter">
+      <div class="panel">
+        <h2>뉴스레터 작성</h2>
+        <div class="row">
+          <div>
+            <label>제목</label>
+            <input id="nl-subject" type="text" placeholder="FoodTech Hub 주간 뉴스 · YYYY-MM-DD" />
+          </div>
+        </div>
+        <label>인사말</label>
+        <input id="nl-intro" type="text" placeholder="이번 주 푸드테크 산업의 주요 뉴스를 모아 보내드립니다." />
+        <div class="row" style="margin-top:14px;align-items:end">
+          <div>
+            <label>뉴스 자동 채우기</label>
+            <button class="btn-secondary" onclick="generateFromNews()">최근 뉴스로 본문 생성</button>
+          </div>
+          <div style="text-align:right">
+            <button class="btn-secondary" onclick="loadDrafts()">최근 캠페인 보기</button>
+          </div>
+        </div>
+        <label>본문 HTML <small style="color:var(--muted)">자동 생성 후 편집 가능</small></label>
+        <textarea id="nl-body" placeholder="HTML 본문을 직접 작성하거나 위 '자동 채우기' 버튼을 누르세요"></textarea>
+
+        <label style="margin-top:18px">발송 대상 필터</label>
+        <div class="row">
+          <select id="f-cohort"><option value="">전체 기수</option></select>
+          <select id="f-status">
+            <option value="">전체</option>
+            <option value="정회원">정회원만</option>
+          </select>
+          <button class="btn-secondary" onclick="previewAudience()">대상자 미리보기</button>
+        </div>
+        <div id="audience-info" style="margin-top:10px;color:var(--muted);font-size:13px"></div>
+
+        <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn-secondary" onclick="saveDraft()">초안 저장</button>
+          <button class="btn-secondary" onclick="sendPreview()">테스트 발송 (내 이메일)</button>
+          <button class="btn-primary" onclick="sendCampaign()">전체 발송</button>
+        </div>
+        <div id="nl-msg"></div>
+      </div>
+
+      <div class="panel">
+        <h2>미리보기</h2>
+        <div class="preview-frame" id="nl-preview"><div class="empty">본문을 입력하면 미리보기가 표시됩니다.</div></div>
+      </div>
+
+      <div class="panel" id="campaigns-panel" style="display:none">
+        <h2>최근 캠페인</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>제목</th><th>상태</th><th>발송</th><th>실패</th><th>날짜</th></tr></thead>
+          <tbody id="campaigns-tbody"></tbody>
+        </table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+let CURRENT_NL_ID = null;
+
+/* ========== AUTH ========== */
+async function checkAuth() {
+  const r = await fetch("/api/admin/me");
+  const d = await r.json();
+  if (d.logged_in) {
+    document.getElementById("login-view").style.display = "none";
+    document.getElementById("app-view").style.display = "block";
+    document.getElementById("admin-email").textContent = d.email;
+    if (!d.email_configured) {
+      msg("nl-msg","⚠️ RESEND_API_KEY 미설정 — 메일은 콘솔에만 출력됩니다 (DRY RUN).","err");
+    }
+    initApp();
+  }
+}
+async function requestMagicLink() {
+  const email = document.getElementById("login-email").value.trim();
+  if (!email) return msg("login-msg","이메일을 입력하세요","err");
+  const fd = new FormData(); fd.append("email", email);
+  const r = await fetch("/api/admin/auth/request", { method:"POST", body: fd });
+  if (r.ok) msg("login-msg","✓ 등록된 관리자라면 이메일이 발송됩니다. 메일함을 확인하세요.","ok");
+  else msg("login-msg","요청 실패","err");
+}
+async function logout() {
+  await fetch("/api/admin/auth/logout", { method:"POST" });
+  location.reload();
+}
+function msg(id, text, kind) {
+  document.getElementById(id).innerHTML = `<div class="msg ${kind}">${text}</div>`;
+}
+
+/* ========== TABS ========== */
+function initApp() {
+  document.querySelectorAll(".topbar nav button").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll(".topbar nav button").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+      document.getElementById(b.dataset.tab).classList.add("active");
+      if (b.dataset.tab === "members") loadMembers();
+      if (b.dataset.tab === "dashboard") loadDashboard();
+    };
+  });
+  loadDashboard();
+  loadCohortOptions();
+  document.getElementById("nl-body").oninput = renderPreview;
+  document.getElementById("nl-subject").oninput = renderPreview;
+}
+
+/* ========== DASHBOARD ========== */
+async function loadDashboard() {
+  const r = await fetch("/api/admin/members/stats");
+  if (!r.ok) return;
+  const d = await r.json();
+  document.getElementById("s-total").textContent = d.total;
+  document.getElementById("s-email").textContent = d.with_email;
+  document.getElementById("s-sub").textContent = d.subscribed;
+  document.getElementById("s-paid").textContent = d.paid_members;
+  renderBar("cohort-chart", d.by_cohort, "cohort");
+  renderBar("category-chart", d.by_category, "category");
+}
+function renderBar(elId, data, key) {
+  if (!data || !data.length) { document.getElementById(elId).innerHTML = '<div class="empty">데이터 없음</div>'; return; }
+  const max = Math.max(...data.map(x => x.count));
+  document.getElementById(elId).innerHTML = data.map(x => `
+    <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
+      <div style="width:140px;font-size:13px;color:var(--muted)">${x[key]||"(미분류)"}</div>
+      <div style="flex:1;background:#eef2f9;border-radius:6px;height:22px;position:relative">
+        <div style="background:linear-gradient(90deg,#4d8bff,#7cc4ff);height:100%;width:${x.count/max*100}%;border-radius:6px"></div>
+        <div style="position:absolute;right:8px;top:0;line-height:22px;font-size:12px;font-weight:600">${x.count}</div>
+      </div>
+    </div>`).join("");
+}
+
+/* ========== MEMBERS ========== */
+async function loadCohortOptions() {
+  const r = await fetch("/api/admin/members/stats");
+  const d = await r.json();
+  const opts = ['<option value="">전체 기수</option>'].concat(d.by_cohort.map(c => `<option value="${c.cohort}">${c.cohort} (${c.count})</option>`));
+  document.getElementById("m-cohort").innerHTML = opts.join("");
+  document.getElementById("f-cohort").innerHTML = opts.join("");
+}
+async function loadMembers() {
+  const q = document.getElementById("m-search").value;
+  const cohort = document.getElementById("m-cohort").value;
+  const status = document.getElementById("m-status").value;
+  const sub = document.getElementById("m-sub").value;
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (cohort) params.set("cohort", cohort);
+  if (status) params.set("status", status);
+  if (sub) params.set("subscribed", sub);
+  const r = await fetch("/api/admin/members?" + params.toString());
+  if (!r.ok) return;
+  const d = await r.json();
+  document.getElementById("m-count").textContent = `${d.count} / ${d.total}명`;
+  document.getElementById("m-tbody").innerHTML = d.items.map(m => `
+    <tr>
+      <td><b>${esc(m.name||"")}</b></td>
+      <td style="font-family:monospace;font-size:12px">${esc(m.email||"")}</td>
+      <td>${esc(m.cohort||"")}</td>
+      <td>${esc(m.organization||"")}</td>
+      <td>${esc(m.position||"")}</td>
+      <td>${statusPill(m.membership_status)}</td>
+      <td>${m.subscribed?'<span class="pill green">동의</span>':'<span class="pill gray">거부</span>'}</td>
+      <td><button class="btn-danger" onclick="toggleSub(${m.id},${!m.subscribed})">${m.subscribed?'수신차단':'수신복구'}</button></td>
+    </tr>
+  `).join("") || `<tr><td colspan="8" class="empty">결과 없음</td></tr>`;
+}
+function statusPill(s) {
+  if (!s) return '<span class="pill gray">—</span>';
+  if (s.includes("임원")) return `<span class="pill blue">${esc(s)}</span>`;
+  if (s.includes("정회원")) return `<span class="pill green">${esc(s)}</span>`;
+  return `<span class="pill gray">${esc(s)}</span>`;
+}
+async function toggleSub(id, value) {
+  await fetch("/api/admin/members/" + id, {
+    method: "PUT", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ subscribed: value })
+  });
+  loadMembers();
+}
+
+/* ========== NEWSLETTER ========== */
+async function generateFromNews() {
+  const r = await fetch("/api/admin/newsletters/from-news", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      subject: document.getElementById("nl-subject").value || undefined,
+      intro: document.getElementById("nl-intro").value || undefined,
+      max_items: 8
+    })
+  });
+  if (!r.ok) return msg("nl-msg","뉴스 생성 실패","err");
+  const d = await r.json();
+  CURRENT_NL_ID = d.id;
+  document.getElementById("nl-subject").value = d.subject;
+  document.getElementById("nl-body").value = d.html_body;
+  renderPreview();
+  msg("nl-msg",`✓ 초안 #${d.id} 생성됨`,"ok");
+}
+function renderPreview() {
+  const subj = document.getElementById("nl-subject").value || "(제목 없음)";
+  const body = document.getElementById("nl-body").value || "<p>본문이 없습니다</p>";
+  document.getElementById("nl-preview").innerHTML = `<div style="font-weight:700;font-size:15px;margin-bottom:12px;color:#4d8bff">${esc(subj)}</div>${body}`;
+}
+async function saveDraft() {
+  const r = await fetch("/api/admin/newsletters", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      subject: document.getElementById("nl-subject").value,
+      html_body: document.getElementById("nl-body").value,
+    })
+  });
+  const d = await r.json();
+  CURRENT_NL_ID = d.id;
+  msg("nl-msg",`✓ 초안 #${d.id} 저장됨`,"ok");
+}
+async function previewAudience() {
+  if (!CURRENT_NL_ID) { msg("nl-msg","먼저 '초안 저장' 또는 '자동 채우기'","err"); return; }
+  const cohort = document.getElementById("f-cohort").value;
+  const status = document.getElementById("f-status").value;
+  const params = new URLSearchParams();
+  if (cohort) params.set("cohort", cohort);
+  if (status) params.set("status", status);
+  const r = await fetch(`/api/admin/newsletters/${CURRENT_NL_ID}/recipients/preview?` + params.toString());
+  const d = await r.json();
+  document.getElementById("audience-info").innerHTML = `대상 <b>${d.count}명</b>. 샘플: ` +
+    d.sample.map(x => `${x.name}(${x.cohort||'-'})`).join(", ");
+}
+async function sendPreview() {
+  if (!CURRENT_NL_ID) await saveDraft();
+  if (!CURRENT_NL_ID) return;
+  const r = await fetch(`/api/admin/newsletters/${CURRENT_NL_ID}/preview`, {
+    method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({})
+  });
+  const d = await r.json();
+  msg("nl-msg", `✓ 테스트 발송: ${d.sent_to}`, "ok");
+}
+async function sendCampaign() {
+  if (!CURRENT_NL_ID) await saveDraft();
+  if (!CURRENT_NL_ID) return;
+  if (!confirm("정말로 전체 발송하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) return;
+  const cohort = document.getElementById("f-cohort").value;
+  const status = document.getElementById("f-status").value;
+  const filter = {};
+  if (cohort) filter.cohort = cohort;
+  if (status) filter.status = status;
+  msg("nl-msg","발송 중…","ok");
+  const r = await fetch(`/api/admin/newsletters/${CURRENT_NL_ID}/send`, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ filter })
+  });
+  const d = await r.json();
+  msg("nl-msg",`✓ 발송 완료: 성공 ${d.sent} / 실패 ${d.failed} / 총 ${d.total}`,"ok");
+  loadDrafts();
+}
+async function loadDrafts() {
+  const r = await fetch("/api/admin/newsletters");
+  const d = await r.json();
+  document.getElementById("campaigns-panel").style.display = "block";
+  document.getElementById("campaigns-tbody").innerHTML = (d.items||[]).map(n => `
+    <tr>
+      <td><b>${esc(n.subject)}</b></td>
+      <td>${esc(n.status)}</td>
+      <td>${n.sent_count}/${n.total_recipients}</td>
+      <td>${n.failed_count}</td>
+      <td>${(n.sent_at||n.created_at||'').slice(0,16).replace('T',' ')}</td>
+    </tr>`).join("") || `<tr><td colspan="5" class="empty">캠페인 없음</td></tr>`;
+}
+
+function esc(s) {
+  return (s==null?'':String(s)).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+checkAuth();
+</script>
+
+</body>
+</html>
